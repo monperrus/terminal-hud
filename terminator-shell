@@ -1,0 +1,29 @@
+#!/usr/bin/env bash
+# Entry point for Terminator: configure this as the custom command in Terminator
+# preferences (Profiles → Command → "Run a custom command instead of my shell").
+#
+# Each Terminator tab maps 1-to-1 to a tmux window:
+#   - First tab  → creates the tmux session (window 0)
+#   - Later tabs → add a new tmux window, attach this client to it
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# Avoid nesting: if we're already inside tmux just run bash.
+if [ -n "$TMUX" ]; then
+    exec bash --rcfile "$SCRIPT_DIR/bash-init.sh"
+fi
+
+SESSION="terminator"
+SHELL_CMD="TERMINATOR_SHELL_DIR='$SCRIPT_DIR' bash --rcfile '$SCRIPT_DIR/bash-init.sh'"
+
+if tmux has-session -t "$SESSION" 2>/dev/null; then
+    # Session exists: open a new window for this tab, then attach to it.
+    # -P prints the new window's target (e.g. "terminator:2") so we can
+    # point this client's focus directly at it.
+    # -d leaves other attached clients undisturbed (their active window unchanged).
+    WINDOW=$(tmux new-window -t "$SESSION" -P -d "$SHELL_CMD")
+    exec tmux -f "$SCRIPT_DIR/tmux.conf" attach-session -t "$WINDOW"
+else
+    # No session yet: create it (implicitly creates window 0).
+    exec tmux -f "$SCRIPT_DIR/tmux.conf" new-session -s "$SESSION" "$SHELL_CMD"
+fi
