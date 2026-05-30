@@ -17,12 +17,15 @@ SESSION="terminator"
 SHELL_CMD="TERMINATOR_SHELL_DIR='$SCRIPT_DIR' bash --rcfile '$SCRIPT_DIR/bash-init.sh'"
 
 if tmux has-session -t "$SESSION" 2>/dev/null; then
+    # Reload config so settings like mouse mode are always current,
+    # regardless of when the server was first started.
+    tmux source-file "$SCRIPT_DIR/tmux.conf"
     # Session exists: open a new window for this tab, then attach to it.
     # -P prints the new window's target (e.g. "terminator:2") so we can
     # point this client's focus directly at it.
     # -d leaves other attached clients undisturbed (their active window unchanged).
     WINDOW=$(tmux new-window -t "$SESSION" -P -d "$SHELL_CMD")
-    exec tmux -f "$SCRIPT_DIR/tmux.conf" attach-session -t "$WINDOW"
+    exec tmux attach-session -t "$WINDOW"
 else
     # No session yet: create it (implicitly creates window 0).
     exec tmux -f "$SCRIPT_DIR/tmux.conf" new-session -s "$SESSION" "$SHELL_CMD"
