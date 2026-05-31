@@ -21,6 +21,7 @@ A custom shell command for the [Terminator](https://gnome-terminator.org/) termi
   - the currently running command (while a command is executing)
 - **Tab sync** — each Terminator tab maps 1-to-1 to a tmux window; opening a tab creates a window, closing a tab destroys it
 - **Custom status text** — `Ctrl-b S` lets you type arbitrary text into the bar (empty input resets to auto)
+- **OSC 8 hyperlinks** — clickable links from tools like `ls --hyperlink`, `git log`, `grep --hyperlink`, etc. work end-to-end through tmux to Terminator
 
 ## Requirements
 
