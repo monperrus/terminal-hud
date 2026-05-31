@@ -20,16 +20,24 @@ SHELL_CMD="TERMINATOR_SHELL_DIR='$SCRIPT_DIR' bash --rcfile '$SCRIPT_DIR/bash-in
 
 if tmux has-session -t "$SESSION" 2>/dev/null; then
     tmux source-file "$SCRIPT_DIR/tmux.conf"
-    # Create a new window in the base session.  Without -d, it becomes the
-    # base session's current window.  The grouped session we create next
-    # inherits that as its initial window, so this tab opens on the new window.
-    tmux new-window -t "$SESSION" "$SHELL_CMD"
+    # Inherit the CWD from whichever Terminator tab the user was just in.
+    # client_activity is the last-interaction timestamp for each attached
+    # client; the most recently active client is the source tab.
+    # display-message then reads that client's current pane path directly,
+    # which handles spaces in paths correctly.
+    CLIENT=$(tmux list-clients -F "#{client_activity} #{client_name}" \
+        | sort -rn | head -1 | awk '{print $2}')
+    CWD=$(tmux display-message -t "$CLIENT" -p "#{pane_current_path}" 2>/dev/null)
+    # Create this tab's grouped session first (detached), then open a new
+    # window inside it.  Grouped sessions have independent current-window
+    # pointers, so new-window only advances THIS session's pointer — no race
+    # with other tabs that may be opening at the same time.
+    GROUPED=$(tmux new-session -d -t "$SESSION" -P -F "#{session_name}")
+    tmux new-window -t "$GROUPED" ${CWD:+-c "$CWD"} "$SHELL_CMD"
+    exec tmux attach -t "$GROUPED"
 else
     # First tab: create the base session detached (no terminal attached to it
     # directly — all clients connect via their own grouped sessions below).
     tmux -f "$SCRIPT_DIR/tmux.conf" new-session -d -s "$SESSION" "$SHELL_CMD"
+    exec tmux new-session -t "$SESSION"
 fi
-
-# Each tab attaches via its own session grouped with the base.  Grouped
-# sessions share all windows but have independent current-window pointers.
-exec tmux new-session -t "$SESSION"

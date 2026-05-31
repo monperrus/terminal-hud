@@ -16,12 +16,17 @@ _terminator_age() {
 
 _terminator_update_status() {
     [ -z "$TMUX" ] && return
-    local jobs_count
-    jobs_count=$(jobs 2>/dev/null | wc -l)
-    local dir="${PWD##*/}"
-    local label=" $(hostname -s) | ${dir:-/} | ${jobs_count} job$( [ "$jobs_count" -ne 1 ] && echo s ) "
-    tmux set-option -g @auto_status "$label" 2>/dev/null
-    tmux set-window-option -t "$TMUX_PANE" @tab_age " $(_terminator_age) " 2>/dev/null
+    # Skip auto-update when the user has pinned a custom status on this window.
+    local custom
+    custom=$(tmux show-options -wqv @custom_status 2>/dev/null)
+    if [ -z "$custom" ]; then
+        local jobs_count
+        jobs_count=$(jobs 2>/dev/null | wc -l)
+        local dir="${PWD##*/}"
+        tmux rename-window -t "$TMUX_PANE" \
+            " $(hostname -s) | ${dir:-/} | ${jobs_count} job$( [ "$jobs_count" -ne 1 ] && echo s ) " 2>/dev/null
+    fi
+    tmux set-option -w -t "$TMUX_PANE" @tab_age " $(_terminator_age) " 2>/dev/null
     _TERMINATOR_NEXT_CMD=1  # arm the DEBUG trap for the next real command
 }
 
@@ -31,13 +36,29 @@ _terminator_debug() {
     [ "$_TERMINATOR_NEXT_CMD" != "1" ] && return
     _TERMINATOR_NEXT_CMD=0
     [ -z "$TMUX" ] && return
+    local custom
+    custom=$(tmux show-options -wqv @custom_status 2>/dev/null)
+    [ -n "$custom" ] && return
     local dir="${PWD##*/}"
-    tmux set-option -g @auto_status " $(hostname -s) | ${dir:-/} | $BASH_COMMAND " 2>/dev/null
+    tmux rename-window -t "$TMUX_PANE" \
+        " $(hostname -s) | ${dir:-/} | $BASH_COMMAND " 2>/dev/null
 }
 
 trap '_terminator_debug' DEBUG
 # Prepend to PROMPT_COMMAND so it runs before any user-defined hooks.
 PROMPT_COMMAND="_terminator_update_status${PROMPT_COMMAND:+; $PROMPT_COMMAND}"
 
-# Kill the tmux window when this shell exits (i.e. when the Terminator tab closes).
-trap 'tmux kill-window 2>/dev/null' EXIT
+# Kill the tmux window AND the grouped session when this shell exits
+# (e.g. Ctrl-D).  Killing only the window leaves the tmux client alive,
+# so the Terminator tab stays open.  Killing the grouped session
+# disconnects the client, which causes Terminator to close the tab.
+_terminator_exit() {
+    local session
+    session=$(tmux display-message -p '#{session_name}' 2>/dev/null)
+    tmux kill-window 2>/dev/null
+    # Kill the grouped session (never the base "terminator" session).
+    if [ -n "$session" ] && [ "$session" != "terminator" ]; then
+        tmux kill-session -t "$session" 2>/dev/null
+    fi
+}
+trap '_terminator_exit' EXIT
