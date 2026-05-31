@@ -53,16 +53,16 @@ PROMPT_COMMAND="_terminator_update_status${PROMPT_COMMAND:+; $PROMPT_COMMAND}"
 # so the Terminator tab stays open.  Killing the grouped session
 # disconnects the client, which causes Terminator to close the tab.
 _terminator_exit() {
+    # Read the grouped session name that terminator-shell stamped on this window.
+    # We can't use #{session_name} because $TMUX in the first tab's shell points
+    # to the base "terminator" session, which must never be killed.
     local session
-    session=$(tmux display-message -p '#{session_name}' 2>/dev/null)
-    # Kill the grouped session first: this disconnects the tmux client so
-    # Terminator closes the tab.  kill-window must come second because it
-    # sends SIGHUP to the pane processes and would interrupt this trap before
-    # kill-session could run.
-    if [ -n "$session" ] && [ "$session" != "terminator" ]; then
+    session=$(tmux show-options -wqv -t "$TMUX_PANE" @grouped_session 2>/dev/null)
+    if [ -n "$session" ]; then
+        # Killing the grouped session disconnects the tmux client → Terminator
+        # closes the tab.  The window is cleaned up automatically by tmux once
+        # this shell process exits.
         tmux kill-session -t "$session" 2>/dev/null
     fi
-    # Remove the window from the base session so it doesn't linger as a dead pane.
-    tmux kill-window 2>/dev/null
 }
 trap '_terminator_exit' EXIT

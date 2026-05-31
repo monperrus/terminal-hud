@@ -23,8 +23,6 @@ if tmux has-session -t "$SESSION" 2>/dev/null; then
     # Inherit the CWD from whichever Terminator tab the user was just in.
     # client_activity is the last-interaction timestamp for each attached
     # client; the most recently active client is the source tab.
-    # display-message then reads that client's current pane path directly,
-    # which handles spaces in paths correctly.
     CLIENT=$(tmux list-clients -F "#{client_activity} #{client_name}" \
         | sort -rn | head -1 | awk '{print $2}')
     CWD=$(tmux display-message -t "$CLIENT" -p "#{pane_current_path}" 2>/dev/null)
@@ -34,10 +32,18 @@ if tmux has-session -t "$SESSION" 2>/dev/null; then
     # with other tabs that may be opening at the same time.
     GROUPED=$(tmux new-session -d -t "$SESSION" -P -F "#{session_name}")
     tmux new-window -t "$GROUPED" ${CWD:+-c "$CWD"} "$SHELL_CMD"
+    # Tag the window so bash-init.sh knows exactly which grouped session to
+    # kill on exit — #{session_name} is unreliable because $TMUX in the shell
+    # can point to the base session rather than the grouped one.
+    tmux set-option -w -t "$GROUPED" @grouped_session "$GROUPED"
     exec tmux attach -t "$GROUPED"
 else
     # First tab: create the base session detached (no terminal attached to it
     # directly — all clients connect via their own grouped sessions below).
     tmux -f "$SCRIPT_DIR/tmux.conf" new-session -d -s "$SESSION" "$SHELL_CMD"
-    exec tmux new-session -t "$SESSION"
+    GROUPED=$(tmux new-session -d -t "$SESSION" -P -F "#{session_name}")
+    # Tag window 0 (started under the base session, so $TMUX points there).
+    FIRST_PANE=$(tmux display-message -t "$SESSION" -p "#{pane_id}")
+    tmux set-option -w -t "$FIRST_PANE" @grouped_session "$GROUPED"
+    exec tmux attach -t "$GROUPED"
 fi
