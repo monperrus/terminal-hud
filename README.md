@@ -14,13 +14,12 @@ A custom shell command for the [Terminator](https://gnome-terminator.org/) termi
 
 ## Features
 
-- **Status bar** — always-visible green bar at the bottom showing:
-  - hostname
-  - current directory (basename only)
-  - number of background jobs
-  - the currently running command (while a command is executing)
+- **Status bar** — always-visible green bar at the bottom showing hostname, current directory, number of background jobs, and the currently running command while it executes
+- **Tab age** — right side of the bar shows how long the tab has been open (e.g. `5m`, `2h`)
 - **Tab sync** — each Terminator tab maps 1-to-1 to a tmux window; opening a tab creates a window, closing a tab destroys it
-- **Custom status text** — `Ctrl-b S` lets you type arbitrary text into the bar (empty input resets to auto)
+- **Custom status text** — `Ctrl-b S` lets you type arbitrary text into the bar; empty input resets to auto
+- **Mouse scrolling** — scroll wheel enters tmux copy mode for buffer browsing; full-screen apps (vim, less) keep their own scroll handling
+- **Clipboard integration** — mouse selections are automatically copied to the X11 clipboard so Ctrl-V / middle-click paste works outside tmux
 - **OSC 8 hyperlinks** — clickable links from tools like `ls --hyperlink`, `git log`, `grep --hyperlink`, etc. work end-to-end through tmux to Terminator
 
 ## Requirements
