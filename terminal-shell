@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
-# Entry point for Terminator: configure this as the custom command in Terminator
-# preferences (Profiles → Command → "Run a custom command instead of my shell").
+# Entry point: configure this as the custom shell command in your terminal
+# emulator's profile settings.
 #
-# Each Terminator tab maps 1-to-1 to a tmux window.  The trick is grouped
-# sessions: one base session ("terminator") owns all windows; each Terminator
+# Each terminal tab maps 1-to-1 to a tmux window.  The trick is grouped
+# sessions: one base session ("terminal-hud") owns all windows; each terminal
 # tab gets its own lightweight session grouped with the base.  Grouped sessions
 # share all windows but each tracks its own current window independently, so
 # switching tabs never moves another tab's view.
@@ -25,12 +25,12 @@ if [ -n "$TMUX" ]; then
     exec bash --rcfile "$SCRIPT_DIR/bash-init.sh"
 fi
 
-SESSION="terminator"
+SESSION="terminal-hud"
 SHELL_CMD="TERMINATOR_SHELL_DIR='$SCRIPT_DIR' bash --rcfile '$SCRIPT_DIR/bash-init.sh'"
 
 if tmux has-session -t "$SESSION" 2>/dev/null; then
     tmux source-file "$SCRIPT_DIR/tmux.conf"
-    # Inherit the CWD from whichever Terminator tab the user was just in.
+    # Inherit the CWD from whichever terminal tab the user was just in.
     # Sort clients by client_activity (last-interaction timestamp) to find the
     # most recently active tab; use its session name as a valid display-message
     # target (client names like /dev/pts/N are not valid pane targets).

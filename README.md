@@ -1,6 +1,6 @@
-# terminator-hud
+# terminal-hud
 
-A custom shell command for the [Terminator](https://gnome-terminator.org/) terminal emulator that adds a persistent green status bar and syncs every Terminator tab to a tmux window.
+A custom shell command for any terminal emulator that adds a persistent green status bar and syncs every terminal tab to a tmux window.
 
 ```
 ┌─────────────────────────────────────────────────────┐
@@ -16,15 +16,15 @@ A custom shell command for the [Terminator](https://gnome-terminator.org/) termi
 
 - **Status bar** — always-visible green bar at the bottom showing hostname, current directory, number of background jobs, and the currently running command while it executes
 - **Tab age** — right side of the bar shows how long the tab has been open (e.g. `5m`, `2h`)
-- **Tab sync** — each Terminator tab maps 1-to-1 to a tmux window; opening a tab creates a window, closing a tab destroys it
+- **Tab sync** — each terminal tab maps 1-to-1 to a tmux window; opening a tab creates a window, closing a tab destroys it
 - **Mouse scrolling** — scroll wheel enters tmux copy mode for buffer browsing; full-screen apps (vim, less) keep their own scroll handling
 - **Clipboard integration** — mouse selections are automatically copied to the X11 clipboard so Ctrl-V / middle-click paste works outside tmux
 - **SSH hostname tracking** — when you `ssh` into a remote server the status bar automatically switches to the remote hostname for the duration of the connection, then reverts on return
-- **OSC 8 hyperlinks** — clickable links from tools like `ls --hyperlink`, `git log`, `grep --hyperlink`, etc. work end-to-end through tmux to Terminator
+- **OSC 8 hyperlinks** — clickable links from tools like `ls --hyperlink`, `git log`, `grep --hyperlink`, etc. work end-to-end through tmux
 
 ## Requirements
 
-- [Terminator](https://gnome-terminator.org/) (any recent version)
+- Any terminal emulator that supports a custom shell command (Terminator, GNOME Terminal, Kitty, Alacritty, Konsole, iTerm2, …)
 - [tmux](https://github.com/tmux/tmux) ≥ 3.0
 
 ## Setup
@@ -32,32 +32,40 @@ A custom shell command for the [Terminator](https://gnome-terminator.org/) termi
 1. Clone this repo somewhere permanent:
 
    ```sh
-   git clone https://github.com/monperrus/terminator-hud ~/.config/terminator-hud
+   git clone https://github.com/monperrus/terminal-hud ~/.config/terminal-hud
    ```
 
-2. Open Terminator → **Preferences → Profiles → (your profile) → Command**
-   - Check **"Run a custom command instead of my shell"**
-   - Set the command to:
-     ```
-     /home/<you>/.config/terminator-hud/terminator-shell
-     ```
+2. Configure your terminal emulator to run `terminal-shell` instead of your shell:
 
-3. Close and reopen Terminator.
+   | Terminal | Where to set it |
+   |---|---|
+   | **Terminator** | Preferences → Profiles → Command → "Run a custom command instead of my shell" |
+   | **GNOME Terminal** | Preferences → Profiles → Command → "Run a custom command instead of my shell" |
+   | **Kitty** | `shell` in `kitty.conf` |
+   | **Alacritty** | `shell.program` in `alacritty.toml` |
+   | **Konsole** | Profile → General → Command |
+
+   Set the command to:
+   ```
+   /home/<you>/.config/terminal-hud/terminal-shell
+   ```
+
+3. Reopen a terminal tab.
 
 ## How it works
 
-`terminator-shell` is what Terminator runs instead of bash. It starts (or joins) a tmux session named `terminator`:
+`terminal-shell` is what the terminal runs instead of bash. It starts (or joins) a tmux session named `terminal-hud`:
 
 - **First tab** creates the session (tmux window 0).
-- **Subsequent tabs** call `tmux new-window -P -d` to get a fresh window, then attach directly to it — so each Terminator tab is an independent tmux client focused on its own window.
+- **Subsequent tabs** call `tmux new-window -P -d` to get a fresh window, then attach directly to it — so each terminal tab is an independent tmux client focused on its own window.
 - **Closing a tab** fires an `EXIT` trap in bash that calls `tmux kill-window`, keeping tmux in sync.
 
 Inside each pane, `bash-init.sh` is sourced as the rcfile. It:
 
 1. Sources `~/.bashrc` so your normal environment is preserved.
-2. Adds a `PROMPT_COMMAND` hook that pushes `hostname | dir | N jobs` into the tmux user-variable `@auto_status` after each command.
-3. Adds a `DEBUG` trap that fires before each command runs and updates `@auto_status` to show the command name, giving live feedback while long-running programs execute.
+2. Adds a `PROMPT_COMMAND` hook that renames the tmux window to `hostname | dir | N jobs` after each command.
+3. Adds a `DEBUG` trap that fires before each command runs and updates the window name to show the running command, giving live feedback while long-running programs execute.
 
-`tmux.conf` renders `#{window_name}` (set via `rename-window`) in the status bar.
+`tmux.conf` renders `#{window_name}` in the status bar.
 
 The tmux prefix is the default `Ctrl-b`. All standard tmux keybindings work normally.
