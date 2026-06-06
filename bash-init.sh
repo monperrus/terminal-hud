@@ -16,9 +16,6 @@ _terminator_age() {
 
 _terminator_update_status() {
     [ -z "$TMUX" ] && return
-    # Record CWD so new tabs can inherit it without relying on tmux client
-    # timestamps, which are not updated by the terminal's tab-open keypress.
-    printf '%s' "$PWD" > "/tmp/terminal-hud-cwd-${UID}-${TMUX_PANE#%}" 2>/dev/null
     local jobs_count
     jobs_count=$(jobs 2>/dev/null | wc -l)
     local dir="${PWD##*/}"
@@ -42,16 +39,6 @@ _terminator_debug() {
 trap '_terminator_debug' DEBUG
 # Prepend to PROMPT_COMMAND so it runs before any user-defined hooks.
 PROMPT_COMMAND="_terminator_update_status${PROMPT_COMMAND:+; $PROMPT_COMMAND}"
-
-# Update CWD tracking on terminal focus-in (tmux focus-events on must be set).
-# This fires when the user switches to this tab via the terminal UI — without
-# it, only running a command updates the file, so switching tabs without typing
-# would leave a stale timestamp and the next new tab would open in the wrong dir.
-_terminator_focus_in() {
-    [ -z "$TMUX" ] && return
-    printf '%s' "$PWD" > "/tmp/terminal-hud-cwd-${UID}-${TMUX_PANE#%}" 2>/dev/null
-}
-bind -x '"\e[I": _terminator_focus_in' 2>/dev/null
 
 # Extract the remote hostname from ssh argument list.
 # Skips option flags and their values; returns the [user@]host stripped of user@.
