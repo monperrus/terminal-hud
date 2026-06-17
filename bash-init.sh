@@ -16,29 +16,58 @@ _terminator_age() {
 
 _terminator_update_status() {
     [ -z "$TMUX" ] && return
+    # Kill subprocess watcher from the previous command.
+    [ -n "$_TERMINATOR_WATCH_PID" ] && kill "$_TERMINATOR_WATCH_PID" 2>/dev/null
+    _TERMINATOR_WATCH_PID=
     local jobs_count
     jobs_count=$(jobs 2>/dev/null | wc -l)
     local dir="${PWD##*/}"
     tmux rename-window -t "$TMUX_PANE" \
         " $(hostname -s) | ${dir:-/} | ${jobs_count} job$( [ "$jobs_count" -ne 1 ] && echo s ) " 2>/dev/null
     tmux set-option -w -t "$TMUX_PANE" @tab_age " $(_terminator_age) " 2>/dev/null
-    _TERMINATOR_NEXT_CMD=1  # arm the DEBUG trap for the next real command
+}
+
+# Called last in PROMPT_COMMAND so that VTE hooks and other PROMPT_COMMAND
+# entries don't get picked up by the DEBUG trap as "the user's command".
+_terminator_arm() {
+    _TERMINATOR_NEXT_CMD=1
 }
 
 _terminator_debug() {
-    # _TERMINATOR_NEXT_CMD is set by PROMPT_COMMAND; the very first DEBUG fire
-    # after a prompt is the user's command — show it, then disarm.
+    # _TERMINATOR_NEXT_CMD is set by _terminator_arm (last in PROMPT_COMMAND);
+    # the very first DEBUG fire after the prompt is the user's command.
     [ "$_TERMINATOR_NEXT_CMD" != "1" ] && return
     _TERMINATOR_NEXT_CMD=0
     [ -z "$TMUX" ] && return
     local dir="${PWD##*/}"
-    tmux rename-window -t "$TMUX_PANE" \
-        " $(hostname -s) | ${dir:-/} | $BASH_COMMAND " 2>/dev/null
+    # Show only the binary name, not the full argument list.
+    local bin="${BASH_COMMAND%% *}"
+    bin="${bin##*/}"
+    local host pane shell_pid
+    host="$(hostname -s)"
+    pane="$TMUX_PANE"
+    shell_pid=$$
+    tmux rename-window -t "$pane" " $host | ${dir:-/} | $bin " 2>/dev/null
+    # Background watcher: update HUD with subprocess names while command runs.
+    {
+        while sleep 1; do
+            local subs
+            subs=$(ps --ppid "$shell_pid" -o comm= 2>/dev/null \
+                | grep -Ev '^(bash|ps|grep|sleep)$' \
+                | head -3 | tr '\n' ' ' | sed 's/ $//')
+            if [ -n "$subs" ]; then
+                tmux rename-window -t "$pane" \
+                    " $host | ${dir:-/} | $bin > $subs " 2>/dev/null
+            fi
+        done
+    } &
+    _TERMINATOR_WATCH_PID=$!
+    disown "$_TERMINATOR_WATCH_PID"
 }
 
 trap '_terminator_debug' DEBUG
-# Prepend to PROMPT_COMMAND so it runs before any user-defined hooks.
-PROMPT_COMMAND="_terminator_update_status${PROMPT_COMMAND:+; $PROMPT_COMMAND}"
+# Prepend status update; append the arm so VTE/other hooks don't get caught.
+PROMPT_COMMAND="_terminator_update_status${PROMPT_COMMAND:+; $PROMPT_COMMAND}; _terminator_arm"
 
 # Extract the remote hostname from ssh argument list.
 # Skips option flags and their values; returns the [user@]host stripped of user@.

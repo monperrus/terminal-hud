@@ -11,7 +11,7 @@ When the user opens a new terminal tab, it should start in the same directory as
 The `pane-focus-in` hook fires every time a pane gains focus. It records the pane ID in a global tmux variable:
 
 ```
-set-hook -g pane-focus-in 'set -g @last_focused_pane "#{pane_id}"'
+set-hook -g pane-focus-in 'set-option -gqF @last_focused_pane "#{pane_id}"'
 ```
 
 `focus-events on` must be set so the outer terminal forwards focus events to tmux.
@@ -35,12 +35,26 @@ tmux new-window -t "$GROUPED" ${CWD:+-c "$CWD"} "$SHELL_CMD"
 
 If `CWD` is empty (no previous focus event, e.g. very first boot), the flag is omitted and tmux uses its default.
 
+### 4. Seed panes that have not received focus yet (terminal-shell)
+
+Some terminal emulators do not emit a focus-in event immediately when the first
+tab is attached or when a newly-created tab becomes visible. `terminal-shell`
+therefore records the pane it just created:
+
+```bash
+tmux set-option -g @last_focused_pane "$NEW_PANE"
+```
+
+The `pane-focus-in` hook still wins once real focus changes happen, but this
+seed value makes the next tab inherit from the visible pane even before the
+first focus event arrives.
+
 ## Files involved
 
 | File | Role |
 |---|---|
 | `tmux.conf` | `pane-focus-in` hook sets `@last_focused_pane`; `focus-events on` enables it |
-| `terminal-shell` | Reads `@last_focused_pane`, queries `#{pane_current_path}`, passes `-c` to `new-window` |
+| `terminal-shell` | Reads `@last_focused_pane`, queries `#{pane_current_path}`, passes `-c` to `new-window`, seeds newly-created panes as the current fallback |
 | `bash-init.sh` | No CWD file I/O; PROMPT_COMMAND only updates the HUD |
 
 ## Evolution (from trajectory history)
@@ -55,6 +69,6 @@ If `CWD` is empty (no previous focus event, e.g. very first boot), the flag is o
 
 ## Edge cases
 
-- **First tab / no prior focus event**: `@last_focused_pane` is unset; `CWD` is empty; new tab opens in tmux's default directory (`$HOME`).
+- **First tab / no prior focus event**: the first pane is seeded into `@last_focused_pane`; subsequent tabs can query its live cwd even if no focus event has fired.
 - **Source pane closed before new tab opens**: `display-message -t "$LAST_PANE"` fails; `CWD` is empty; falls back to default.
 - **Root directory** (`/`): `#{pane_current_path}` returns `/`; `-c /` is a valid `new-window` argument.

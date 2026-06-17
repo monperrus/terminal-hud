@@ -42,11 +42,18 @@ if tmux has-session -t "$SESSION" 2>/dev/null; then
     # pointers, so new-window only advances THIS session's pointer — no race
     # with other tabs that may be opening at the same time.
     GROUPED=$(tmux new-session -d -t "$SESSION" -P -F "#{session_name}")
-    tmux new-window -t "$GROUPED" ${CWD:+-c "$CWD"} "$SHELL_CMD"
+    NEW_WINDOW_ARGS=(-t "$GROUPED")
+    if [ -n "$CWD" ]; then
+        NEW_WINDOW_ARGS+=(-c "$CWD")
+    fi
+    NEW_PANE=$(tmux new-window -P -F "#{pane_id}" "${NEW_WINDOW_ARGS[@]}" "$SHELL_CMD")
     # Tag the window so bash-init.sh knows exactly which grouped session to
     # kill on exit — #{session_name} is unreliable because $TMUX in the shell
     # can point to the base session rather than the grouped one.
-    tmux set-option -w -t "$GROUPED" @grouped_session "$GROUPED"
+    tmux set-option -w -t "$NEW_PANE" @grouped_session "$GROUPED"
+    # Seed the fallback source for terminals that do not emit a focus-in event
+    # immediately when the newly-created tab is attached.
+    tmux set-option -g @last_focused_pane "$NEW_PANE"
     exec tmux attach -t "$GROUPED"
 else
     # First tab: create the base session detached (no terminal attached to it
@@ -56,5 +63,8 @@ else
     # Tag window 0 (started under the base session, so $TMUX points there).
     FIRST_PANE=$(tmux display-message -t "$SESSION" -p "#{pane_id}")
     tmux set-option -w -t "$FIRST_PANE" @grouped_session "$GROUPED"
+    # No focus event may have fired yet, but the next tab still needs a source
+    # pane whose live cwd can be queried.
+    tmux set-option -g @last_focused_pane "$FIRST_PANE"
     exec tmux attach -t "$GROUPED"
 fi
