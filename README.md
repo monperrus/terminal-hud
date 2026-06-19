@@ -16,7 +16,8 @@ A custom shell command for any terminal emulator that adds a persistent green st
 
 - **Status bar** — always-visible green bar at the bottom showing hostname, current directory, number of background jobs, and the currently running command while it executes
 - **Tab age** — right side of the bar shows how long the tab has been open (e.g. `5m`, `2h`)
-- **Tab sync** — each terminal tab maps 1-to-1 to a tmux window; opening a tab creates a window, closing a tab destroys it
+- **Tab sync** — each terminal tab maps 1-to-1 to a tmux window; opening a tab creates or restores a window, and `Ctrl-D` intentionally closes it
+- **Crash/close recovery** — if the terminal emulator is closed, the tmux-backed tabs remain available and are reclaimed as tabs are reopened
 - **Mouse scrolling** — scroll wheel enters tmux copy mode for buffer browsing; full-screen apps (vim, less) keep their own scroll handling
 - **Clipboard integration** — mouse selections are automatically copied to the X11 clipboard so Ctrl-V / middle-click paste works outside tmux
 - **SSH hostname tracking** — when you `ssh` into a remote server the status bar automatically switches to the remote hostname for the duration of the connection, then reverts on return
@@ -57,8 +58,9 @@ A custom shell command for any terminal emulator that adds a persistent green st
 `terminal-shell` is what the terminal runs instead of bash. It starts (or joins) a tmux session named `terminal-hud`:
 
 - **First tab** creates the session (tmux window 0).
-- **Subsequent tabs** call `tmux new-window -P -d` to get a fresh window, then attach directly to it — so each terminal tab is an independent tmux client focused on its own window.
-- **Closing a tab** fires an `EXIT` trap in bash that calls `tmux kill-window`, keeping tmux in sync.
+- **Subsequent tabs** first reclaim any detached grouped session left behind by a closed terminal emulator. If no detached tab is available, they call `tmux new-window -P -d` to get a fresh window, then attach directly to it — so each terminal tab is an independent tmux client focused on its own window.
+- **Closing a shell with `Ctrl-D`** fires an `EXIT` trap in bash that kills that tab's grouped session, keeping tmux in sync.
+- **Closing the terminal emulator** only detaches the tmux clients. The pane shells, running commands, and tab sessions stay alive in tmux; reopening terminal tabs attaches to those detached sessions before creating new ones.
 
 Inside each pane, `bash-init.sh` is sourced as the rcfile. It:
 
