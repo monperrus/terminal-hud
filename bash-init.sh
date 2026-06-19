@@ -50,6 +50,11 @@ _terminator_debug() {
     tmux rename-window -t "$pane" " $host | ${dir:-/} | $bin " 2>/dev/null
     # Background watcher: update HUD with subprocess names while command runs.
     {
+        # Close pipe FDs inherited from the parent shell's pipeline setup.
+        # pipe() creates FDs without O_CLOEXEC; fork() (used by { }& ) inherits
+        # them, keeping the write end open and causing the parent's pipelines to
+        # hang waiting for EOF (e.g. echo foo | cat).
+        exec 3>&- 4>&- 5>&- 6>&- 7>&- 8>&- 9>&-
         while sleep 1; do
             local subs
             subs=$(ps --ppid "$shell_pid" -o comm= 2>/dev/null \
