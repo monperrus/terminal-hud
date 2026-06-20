@@ -16,9 +16,6 @@ _terminator_age() {
 
 _terminator_update_status() {
     [ -z "$TMUX" ] && return
-    # Kill subprocess watcher from the previous command.
-    [ -n "$_TERMINATOR_WATCH_PID" ] && kill "$_TERMINATOR_WATCH_PID" 2>/dev/null
-    _TERMINATOR_WATCH_PID=
     local jobs_count
     jobs_count=$(jobs 2>/dev/null | wc -l)
     local dir="${PWD##*/}"
@@ -43,31 +40,10 @@ _terminator_debug() {
     # Show only the binary name, not the full argument list.
     local bin="${BASH_COMMAND%% *}"
     bin="${bin##*/}"
-    local host pane shell_pid
+    local host pane
     host="$(hostname -s)"
     pane="$TMUX_PANE"
-    shell_pid=$$
     tmux rename-window -t "$pane" " $host | ${dir:-/} | $bin " 2>/dev/null
-    # Background watcher: update HUD with subprocess names while command runs.
-    {
-        # Close pipe FDs inherited from the parent shell's pipeline setup.
-        # pipe() creates FDs without O_CLOEXEC; fork() (used by { }& ) inherits
-        # them, keeping the write end open and causing the parent's pipelines to
-        # hang waiting for EOF (e.g. echo foo | cat).
-        exec 3>&- 4>&- 5>&- 6>&- 7>&- 8>&- 9>&-
-        while sleep 1; do
-            local subs
-            subs=$(ps --ppid "$shell_pid" -o comm= 2>/dev/null \
-                | grep -Ev '^(bash|ps|grep|sleep)$' \
-                | head -3 | tr '\n' ' ' | sed 's/ $//')
-            if [ -n "$subs" ]; then
-                tmux rename-window -t "$pane" \
-                    " $host | ${dir:-/} | $bin > $subs " 2>/dev/null
-            fi
-        done
-    } &
-    _TERMINATOR_WATCH_PID=$!
-    disown "$_TERMINATOR_WATCH_PID"
 }
 
 trap '_terminator_debug' DEBUG
