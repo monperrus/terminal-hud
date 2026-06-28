@@ -28,25 +28,21 @@ fi
 SESSION="terminal-hud"
 SHELL_CMD="TERMINATOR_SHELL_DIR='$SCRIPT_DIR' bash --rcfile '$SCRIPT_DIR/bash-init.sh'"
 
-_terminal_hud_attach_detached_tab() {
+_terminal_hud_kill_orphans() {
     local session_name session_group session_attached
     while IFS=$'\t' read -r session_name session_group session_attached; do
         [ "$session_name" = "$SESSION" ] && continue
         [ "$session_group" = "$SESSION" ] || continue
         [ "$session_attached" = "0" ] || continue
 
-        tmux source-file "$SCRIPT_DIR/tmux.conf"
-        exec tmux attach -t "$session_name"
+        tmux kill-session -t "$session_name"
     done < <(tmux list-sessions -F "#{session_name}	#{session_group}	#{session_attached}" 2>/dev/null)
 }
 
 if tmux has-session -t "$SESSION" 2>/dev/null; then
     # If Terminator was closed, tmux keeps the grouped tab sessions alive after
-    # their clients detach.  Reopening terminal tabs should reclaim those
-    # sessions before creating new windows, so shell state and running commands
-    # stay where the user left them.  Ctrl-D still closes a pane intentionally
-    # via the EXIT trap in bash-init.sh.
-    _terminal_hud_attach_detached_tab
+    # their clients detach.  Kill them so every new tab gets a fresh shell.
+    _terminal_hud_kill_orphans
 
     tmux source-file "$SCRIPT_DIR/tmux.conf"
     # Inherit the CWD from whichever tab last had focus.
