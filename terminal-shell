@@ -26,7 +26,7 @@ if [ -n "$TMUX" ]; then
 fi
 
 SESSION="terminal-hud"
-SHELL_CMD="TERMINATOR_SHELL_DIR='$SCRIPT_DIR' bash --rcfile '$SCRIPT_DIR/bash-init.sh'"
+SHELL_CMD="TERMINAL_HUD_SHELL_DIR='$SCRIPT_DIR' bash --rcfile '$SCRIPT_DIR/bash-init.sh'"
 
 _terminal_hud_kill_orphans() {
     local session_name session_group session_attached
@@ -40,8 +40,9 @@ _terminal_hud_kill_orphans() {
 }
 
 if tmux has-session -t "$SESSION" 2>/dev/null; then
-    # If Terminator was closed, tmux keeps the grouped tab sessions alive after
-    # their clients detach.  Kill them so every new tab gets a fresh shell.
+    # If the terminal emulator was closed, tmux keeps the grouped tab sessions
+    # alive after their clients detach.  Kill them so every new tab gets a
+    # fresh shell.
     _terminal_hud_kill_orphans
 
     tmux source-file "$SCRIPT_DIR/tmux.conf"
