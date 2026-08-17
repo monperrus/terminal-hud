@@ -42,7 +42,7 @@ A custom shell command for any terminal emulator that adds a persistent green st
    |---|---|
    | **Terminator** | Preferences → Profiles → Command → "Run a custom command instead of my shell" |
    | **GNOME Terminal** | Preferences → Profiles → Command → "Run a custom command instead of my shell" |
-   | **Kitty** | `shell` in `kitty.conf` |
+   | **Kitty** | `shell` in `kitty.conf` — see [Using kitty](#using-kitty) |
    | **Alacritty** | `shell.program` in `alacritty.toml` |
    | **Konsole** | Profile → General → Command |
 
@@ -52,6 +52,31 @@ A custom shell command for any terminal emulator that adds a persistent green st
    ```
 
 3. Reopen a terminal tab.
+
+## Using kitty
+
+kitty is configured through `~/.config/kitty/kitty.conf` (create it if missing):
+
+```
+shell /home/<you>/.config/terminal-hud/terminal-shell
+```
+
+Reload kitty config in a running window with `ctrl+shift+f5` (or restart kitty).
+Each kitty OS window/tab now gets its own tmux window, exactly like the other
+terminals above.
+
+Notes specific to kitty:
+
+- **Launching kitty from inside a terminal-hud tab**: kitty inherits `$TMUX`
+  from the parent shell. `terminal-shell` detects this (it compares the tty of
+  the exported `$TMUX_PANE` with its own tty) and starts a new tmux client
+  anyway instead of degrading to plain bash. No `env -u TMUX` needed.
+- **Remote hosts**: kitty sets `TERM=xterm-kitty`, so either install kitty's
+  terminfo on the remote side (`kitty +kitten ssh myhost` does this
+  automatically) or add `term xterm-256color` to `kitty.conf` — tmux sets the
+  pane `TERM` itself, so day-to-day panes are unaffected.
+- **Clipboard**: tmux.conf pipes mouse selections to `xclip`; on Wayland
+  replace it with `wl-copy` in `tmux.conf`.
 
 ## How it works
 

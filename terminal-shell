@@ -20,8 +20,14 @@ if [ -f "$_ti_src" ] && [ ! -f "$_ti_dst" ]; then
 fi
 unset _ti_src _ti_dst
 
-# Avoid nesting: if we're already inside tmux just run bash.
-if [ -n "$TMUX" ]; then
+# Avoid nesting: if we're already inside a tmux pane just run bash.
+# Checking $TMUX alone is not enough: launching a terminal emulator (e.g. kitty)
+# from an existing terminal-hud tab exports $TMUX/$TMUX_PANE into the new
+# emulator's environment.  Verify the exported $TMUX_PANE really belongs to
+# this terminal by comparing its tty with ours; only a true pane matches.
+if [ -n "$TMUX" ] && [ -n "$TMUX_PANE" ] \
+    && [ "$(tmux display-message -p -t "$TMUX_PANE" '#{pane_tty}' 2>/dev/null)" = "$(tty)" ]
+then
     exec bash --rcfile "$SCRIPT_DIR/bash-init.sh"
 fi
 
