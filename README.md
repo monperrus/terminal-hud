@@ -95,4 +95,4 @@ Inside each pane, `bash-init.sh` is sourced as the rcfile. It:
 
 `tmux.conf` renders `#{window_name}` in the status bar.
 
-The tmux prefix is the default `Ctrl-b`. All standard tmux keybindings work normally.
+The tmux prefix is `F12` (not the default `Ctrl-b`) so that `Ctrl-b` and other readline/vim/less shortcuts pass through untouched to ssh'd remote sessions. All standard tmux keybindings work normally with the new prefix, e.g. `F12 c` for a new window.
